@@ -1,0 +1,108 @@
+#Create a simulator object
+set ns [new Simulator]
+
+#Define different colors for data flows (for NAM)
+$ns color 1 Blue
+$ns color 2 Green
+$ns color 3 Red
+
+#Open the NAM trace file
+set nf [open m_tcp.nam w]
+$ns namtrace-all $nf 
+
+#Define a 'finish' procedure
+proc finish {} { global ns nf
+$ns flush-trace 
+close $nf
+exec nam m_tcp.nam &
+exit 0
+}
+
+#Create six nodes
+set n0 [$ns node] 
+set n1 [$ns node] 
+set n2 [$ns node] 
+set n3 [$ns node] 
+set n4 [$ns node] 
+set n5 [$ns node]
+
+#Defining colors for node
+$n0 color Blue
+$n1 color Green
+$n2 color Red
+
+#Create links between the nodes
+$ns duplex-link $n0 $n3 2.9Mb 10ms DropTail
+$ns duplex-link $n1 $n3 2Mb 10ms DropTail
+$ns duplex-link $n2 $n3 2.7Mb 20ms DropTail
+$ns duplex-link $n3 $n4 1.7Mb 20ms DropTail
+$ns duplex-link $n4 $n5 1.6Mb 20ms DropTail
+
+#Set Queue Size of link (n4-n5) to 5
+$ns queue-limit $n4 $n5 5
+
+#Give node position (for NAM)
+$ns duplex-link-op $n0 $n3 orient right-down
+$ns duplex-link-op $n1 $n3 orient right
+$ns duplex-link-op $n2 $n3 orient right-up
+$ns duplex-link-op $n3 $n4 orient right
+$ns duplex-link-op $n4 $n5 orient right
+
+#Monitor the queue for link (n4-n5). (for NAM)
+$ns duplex-link-op $n4 $n5 queuePos 0.5
+
+#Setup a TCP1 connection
+set tcp1 [new Agent/TCP]
+$tcp1 set class_ 1
+$ns attach-agent $n0 $tcp1 
+set sink1 [new Agent/TCPSink]
+$ns attach-agent $n5 $sink1
+$ns connect $tcp1 $sink1
+$tcp1 set fid_ 1
+
+#Setup a TCP2 connection
+set tcp2 [new Agent/TCP]
+$tcp2 set class_ 2
+$ns attach-agent $n1 $tcp2 
+set sink2 [new Agent/TCPSink]
+$ns attach-agent $n5 $sink2
+$ns connect $tcp2 $sink2
+$tcp2 set fid_ 2
+
+#Setup a TCP3 connection
+set tcp3 [new Agent/TCP]
+$tcp3 set class_ 3
+$ns attach-agent $n2 $tcp3 
+set sink3 [new Agent/TCPSink]
+$ns attach-agent $n5 $sink3
+$ns connect $tcp3 $sink3
+$tcp3 set fid_ 3
+
+#Setup a FTP1 over TCP1 connection
+set ftp1 [new Application/FTP]
+$ftp1 attach-agent $tcp1
+$ftp1 set type_ FTP
+
+#Setup a FTP2 over TCP2 connection
+set ftp2 [new Application/FTP]
+$ftp2 attach-agent $tcp2
+$ftp2 set type_ FTP
+
+#Setup a FTP3 over TCP3 connection
+set ftp3 [new Application/FTP]
+$ftp3 attach-agent $tcp3
+$ftp3 set type_ FTP
+
+#Schedule events for the FTP agents
+$ns at 0.1 "$ftp1 start"
+$ns at 0.3 "$ftp2 start"
+$ns at 0.5 "$ftp3 start"
+$ns at 1 "$ftp1 stop"
+$ns at 1.2 "$ftp2 stop" 
+$ns at 1.4 "$ftp3 stop"
+
+#Call the finish procedure after 5 seconds of simulation time
+$ns at 1.6 "finish"
+
+#Run the simulation
+$ns run
